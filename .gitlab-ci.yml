@@ -1,0 +1,50 @@
+image: docker:latest
+services:
+  - docker:dind
+include:
+  - template: Security/Dependency-scanning.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Container-scanning.gitlab-ci.yml
+
+stages:
+  - build
+  - package
+  - push 
+  - test
+  - deploy
+dependency_scanning:
+  stage: test
+  variables:
+    DOCKER_IMAGE: $CI_REGISTRY_IMAGE
+
+maven-build:
+  image: maven:3-jdk-8
+  stage: build
+  script: "mvn package -B"
+  artifacts:
+    paths:
+      - target/*.jar
+
+docker-build:
+  stage: package
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker build --pull -t "$CI_REGISTRY_IMAGE" .
+
+publish-image:
+  stage: push
+  script:    
+    - docker push "$CI_REGISTRY_IMAGE"
+
+k8s-deploy:
+  image: google/cloud-sdk
+  stage: deploy
+  script:
+    - echo "$GOOGLE_KEY" > key.json
+    - gcloud auth activate-service-account --key-file key.json
+    - gcloud config set compute/zone us-central1-c 
+    - gcloud config set project "$PROJECT_ID"
+    - gcloud container clusters get-credentials mcommerce-cluster
+    - kubectl apply -f commands-deployment.yml
+
