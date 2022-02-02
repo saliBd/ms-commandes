@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commands-deployment
+  lables:
+    app: commands
+spec:
+  replicas: 3
+  selector:
+    matchLables:
+      app: commands
+  template:
+    metadata:
+      labels:
+        app: commands
+    spec:
+      containers:
+      - name: commands
+        image: registry.gitlab.com/sali21/ms-commandes
+        ports:
+        - containerPort: 8086
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: commands-service
+spec:
+  selector:
+    app: commands
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 8086
+      targetPort: 8086
+      nodePort: 32000
+
